@@ -1,0 +1,98 @@
+#Math 347 Project 2 Task 1: 
+
+# Parameters
+S0 = 60             # Initial stock price
+K = 62              # Strike price
+T = 0.5             # Time to maturity in years
+r = 0.05            # Risk-free rate (5% per annum)
+sigma = 0.15        # Volatility (15%)
+dt = 0.05           # Time step in years
+n_steps = 10        # Number of steps
+
+# Stock path 
+stock_prices = c(60, 63.44, 62.38, 62.25, 68.05, 65.66, 68.99, 71.04, 73.34, 69.62, 71.00)
+
+# Function to calculate d1 for delta of the put option
+calc_d1 = function(S, K, T, t, r, sigma) {
+  (log(S / K) + (r + 0.5 * sigma^2) * (T - t)) / (sigma * sqrt(T - t))
+}
+
+# Initialize each vector corresponding to each column
+delta = numeric(length(stock_prices))       # Column 4
+action = numeric(length(stock_prices))     # Column 5
+money_lent = numeric(length(stock_prices)) # Column 6
+cumulative_lent = numeric(length(stock_prices)) # Column 7
+interest = numeric(length(stock_prices))   # Column 8
+cumulative_lent[1] <- 0  # No money lent or borrowed at t=0
+
+# Loop through each time step to fill the table
+for (i in 1:length(stock_prices)) {
+  t = (i - 1) * dt            # Current time
+  S = stock_prices[i]         # Current stock price
+  
+  # Calculate d1 and delta for the put option
+  d1 = calc_d1(S, K, T, t, r, sigma)
+  delta[i] = -pnorm(-d1)      # Delta for the put option
+  
+  # Determine action (shares to buy/sell) and money lent/borrowed
+  if (i == 1) {
+    action[i] = delta[i]       # Initial action based on delta
+  } else {
+    action[i] = delta[i] - delta[i - 1] # Buy/sell shares based on delta change
+  }
+  money_lent[i] = -action[i] * S        # Money borrowed (negative) or lent (positive) from action
+  
+  # Calculate cumulative money lent/borrowed and interest
+  if (i > 1) {
+    interest[i] = cumulative_lent[i - 1] * (exp(r * dt) - 1)  # Interest on previous cumulative lent/borrowed
+    cumulative_lent[i] = cumulative_lent[i - 1] + interest[i] + money_lent[i] # Update cumulative lent/borrowed
+  } else {
+    interest[i] = 0
+  }
+}
+
+# Combine into a data frame
+hedge_table <- data.frame(
+  Step = 0:(length(stock_prices) - 1),
+  t = seq(0, T, by = dt),
+  Stock_Price = stock_prices, #Round to 4 decimals for simplicity
+  Delta = round(delta, 4), #Round to 4 decimals for simplicity
+  Action_Shares = round(action, 4),
+  Money_Lent = round(money_lent, 2), #Round to 2 decimals because money only has 2 decimals
+  Cumulative_Lent = round(cumulative_lent, 2), #Round to 2 decimals because money only has 2 decimals
+  Interest = round(interest, 2) #Round to 2 decimals because money only has 2 decimals
+)
+
+# Print the resulting table
+print(hedge_table)
+
+
+#Math 347 Project 2 Task 2: 
+#Task 2
+S0 = 60
+a = 0.05 #r in Black-Scholes
+b = 0.15 #Sigma in Black-Scholes
+T = 0.5
+n = 100
+deltaT = T/n
+# Simulate the stock price path
+repeat{
+  S = rep(S0,n+1)
+  W = rnorm(n,0,1)
+for (i in 1:n) {
+  S[i + 1] <- S[i] + a * S[i] * deltaT + b * S[i] * sqrt(deltaT) * W[i]
+}
+
+# Plot the stock price path
+plot(seq(0, T, by = deltaT), S, type = "o", col = "blue", pch = 16,
+     main = "Simulated Stock Price Path - Generalized Wiener Process",
+     xlab = "Time", ylab = "Stock Price", lwd = 1.5)
+grid()
+
+# Check if S(0.5) (t = 0.5) is less than 62
+if (S[n] < 62) {
+  print(paste("Stock price at t = 0.5:", round(S[n], 2)))
+  break
+} 
+}
+
