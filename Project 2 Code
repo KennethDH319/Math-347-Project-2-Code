@@ -73,7 +73,7 @@ S0 = 60
 a = 0.05 #r in Black-Scholes
 b = 0.15 #Sigma in Black-Scholes
 T = 0.5
-n = 100
+n = 10
 deltaT = T/n
 # Simulate the stock price path
 repeat{
@@ -90,9 +90,82 @@ plot(seq(0, T, by = deltaT), S, type = "o", col = "blue", pch = 16,
 grid()
 
 # Check if S(0.5) (t = 0.5) is less than 62
-if (S[n] < 62) {
-  print(paste("Stock price at t = 0.5:", round(S[n], 2)))
+if (S[n+1] < 62) {
+  print(paste("Stock price at t = 0.5:", round(S[n+1], 2)))
+  SP = S
   break
 } 
 }
+# Load necessary libraries
+library(stats)
+
+
+#Copy code from task 1:
+# Parameters
+S0 <- 60             # Initial stock price
+K <- 62              # Strike price
+T <- 0.5             # Time to maturity in years
+r <- 0.05            # Risk-free rate (5% per annum)
+sigma <- 0.15        # Volatility (15%)
+dt <- 0.05           # Time step in years
+n_steps <- T / dt    # Number of time steps
+
+# Stock path (use provided or calculate based on Geometric Brownian Motion)
+stock_prices <- SP #Change the stock prices to the ones simulated from the code above
+
+# Helper function to calculate d1 for delta of the put option
+calc_d1 <- function(S, K, T, t, r, sigma) {
+  (log(S / K) + (r + 0.5 * sigma^2) * (T - t)) / (sigma * sqrt(T - t))
+}
+
+# Initialize columns for the table
+delta <- numeric(length(stock_prices))      # Delta of the put
+action <- numeric(length(stock_prices))     # Buy/Sell number of shares
+money_lent <- numeric(length(stock_prices)) # Money lent/borrowed at each step
+cumulative_lent <- numeric(length(stock_prices)) # Cumulative money lent/borrowed
+interest <- numeric(length(stock_prices))   # Interest earned/paid
+
+# Initial values
+cumulative_lent[1] <- 0  # No money lent or borrowed at t=0
+
+# Loop through each time step to fill the table
+for (i in 1:length(stock_prices)) {
+  t <- (i - 1) * dt            # Current time
+  S <- stock_prices[i]         # Current stock price
+  
+  # Calculate d1 and delta for the put option
+  d1 <- calc_d1(S, K, T, t, r, sigma)
+  delta[i] <- pnorm(-d1)      # Updated Delta for the put option based on instructions
+  
+  # Determine action (shares to buy/sell) and money lent/borrowed
+  if (i == 1) {
+    action[i] <- delta[i]       # Initial action based on delta
+  } else {
+    action[i] <- delta[i] - delta[i - 1] # Buy/sell shares based on delta change
+  }
+  money_lent[i] <- action[i] * S        # Money borrowed (negative) or lent (positive) based on updated delta
+  
+  # Calculate cumulative money lent/borrowed and interest
+  if (i > 1) {
+    interest[i] <- cumulative_lent[i - 1] * (exp(r * dt) - 1)  # Interest on previous cumulative lent/borrowed
+    cumulative_lent[i] <- cumulative_lent[i - 1] + interest[i] + money_lent[i] # Update cumulative lent/borrowed
+  } else {
+    interest[i] <- 0
+  }
+}
+
+# Combine into a data frame
+hedge_table <- data.frame(
+  Step = 0:(length(stock_prices) - 1),
+  t = seq(0, T, by = dt),
+  Stock_Price = stock_prices,
+  Delta = round(delta, 9),
+  Action_Shares = round(action, 9),
+  Money_Lent = round(money_lent, 2),
+  Cumulative_Lent = round(cumulative_lent, 2),
+  Interest = round(interest, 2)
+)
+
+# Print the resulting table
+print(hedge_table)
 
